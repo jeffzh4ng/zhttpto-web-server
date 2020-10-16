@@ -16,6 +16,8 @@ use std::net::TcpListener;
 use std::str;
 use std::thread;
 
+static mut VISITOR_COUNT: u32 = 0;
+
 fn main() {
     let addr = "127.0.0.1:4414";
 
@@ -29,6 +31,9 @@ fn main() {
             Ok(mut stream) => {
                 // Spawn a thread to handle the connection
                 thread::spawn(move|| {
+                    unsafe {
+                        VISITOR_COUNT += 1;
+                    }
                     match stream.peer_addr() {
                         Err(_) => (),
                         Ok(pn) => println!("Received connection from: [{}]", pn),
@@ -41,18 +46,21 @@ fn main() {
                         Ok(body) => println!("Recieved request body:\n{}", body),
                     }
 
-                    let response =
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
-                         <doctype !html><html><head><title>Hello, Rust!</title>
-                         <style>body { background-color: #111; color: #FFEEAA }
-                                h1 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}
-                                h2 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green}
-                         </style></head>
-                         <body>
-                         <h1>Greetings, Krusty!</h1>
-                         </body></html>\r\n";
-                    stream.write(response.as_bytes()).unwrap();
-                    println!("Connection terminates.");
+                    unsafe {
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
+                            <doctype !html><html><head><title>Hello, Rust!</title>
+                            <style>body {{ background-color: #111; color: #FFEEAA }}
+                                    h1 {{ font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}}
+                                    h2 {{ font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green}}
+                            </style></head>
+                            <body>
+                            <h1>Greetings, Krusty!</h1>
+                            <p>Number of requests: {}</p>
+                            </body></html>\r\n", VISITOR_COUNT);
+                        stream.write(response.as_bytes()).unwrap();
+                        println!("Connection terminates.");
+                    }
                 });
             },
         }
